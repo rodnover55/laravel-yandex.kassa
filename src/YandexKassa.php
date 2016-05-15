@@ -25,6 +25,7 @@ class YandexKassa implements YandexKassaInterface
 
     public function __construct(OrderServiceInterface $orderService, array $options) {
         $this->validate($options);
+        
         $this->options = $options;
         $this->orderService = $orderService;
     }

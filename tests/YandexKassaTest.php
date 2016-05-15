@@ -26,6 +26,13 @@ class YandexKassaTest extends TestCase
             YandexKassa::AVISO => [YandexKassa::AVISO, $this->getFixture('aviso.json')]
         ];
     }
+
+    /**
+     * @dataProvider actionsProvider
+     */
+    public function testMD5($action, $data) {
+        $this->assertTrue($this->paymentService->checkMD5($action, $data));
+    }
     
     public function testCheck() {
         $data = $this->getRequestDataForNewOrder('request.json', [
