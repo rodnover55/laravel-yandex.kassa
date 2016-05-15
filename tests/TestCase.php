@@ -4,9 +4,9 @@ namespace Rnr\Tests\YandexKassa;
 use Faker\Generator;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Prophecy\Prophet;
-use Rnr\Tests\YandexKassa\Mock\OrderService;
 use Rnr\YandexKassa\Providers\YandexKassaProvider;
 use Illuminate\Contracts\Config\Repository as Config;
+use BadMethodCallException;
 
 class TestCase extends BaseTestCase
 {
@@ -47,5 +47,22 @@ class TestCase extends BaseTestCase
         
         $this->faker = new Generator();
         $this->prophet = new Prophet();
+    }
+
+    protected function getBasePath()
+    {
+        return realpath(parent::getBasePath());
+    }
+
+    function __call($name, $arguments)
+    {
+        if (!in_array($name, ['get', 'post', 'patch', 'delete'])) {
+            throw new BadMethodCallException("Method '{$name} is undefined.");
+        }
+
+        array_unshift($arguments, $name);
+        $response = call_user_func_array([$this, 'call'], $arguments);
+
+        $this->response = $response;
     }
 }
