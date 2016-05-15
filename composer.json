@@ -1,0 +1,27 @@
+{
+    "name": "rodnover55/laravel-yandex.kassa",
+    "require": {
+        "laravel/framework": "^5.1",
+        "fzaninotto/faker": "^1.6"
+    },
+    "require-dev": {
+        "orchestra/testbench": "3.1",
+        "phpunit/phpunit": "^5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rnr\\YandexKassa\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Rnr\\Tests\\YandexKassa\\": "tests"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sergei Melnikov",
+            "email": "me@rnr.name"
+        }
+    ]
+}
