@@ -5,6 +5,7 @@ namespace Rnr\YandexKassa;
 use Carbon\Carbon;
 use Rnr\YandexKassa\Exceptions\ValidateException;
 use Rnr\YandexKassa\Exceptions\YandexKassaException;
+use Rnr\YandexKassa\interfaces\LoggerInterface;
 use Rnr\YandexKassa\interfaces\OrderServiceInterface;
 use Rnr\YandexKassa\interfaces\YandexKassaInterface;
 
@@ -19,15 +20,18 @@ class YandexKassa implements YandexKassaInterface
     const AVISO = 'paymentAviso';
 
     private $options;
-    private $customerRepository;
     /** @var OrderServiceInterface */
     private $orderService;
+    /** @var LoggerInterface */
+    private $logger;
 
-    public function __construct(OrderServiceInterface $orderService, array $options) {
+    public function __construct(OrderServiceInterface $orderService, array $options,
+                                LoggerInterface $logger = null) {
         $this->validate($options);
         
         $this->options = $options;
         $this->orderService = $orderService;
+        $this->logger = $logger;
     }
 
     protected function validate(array $options) {
@@ -70,47 +74,29 @@ class YandexKassa implements YandexKassaInterface
     }
 
     protected function checkPreconditions($action, $data) {
-        if (!$this->checkMD5($action, $data)) {
-            throw new YandexKassaException(
-                $this->createData($action, self::CODE_AUTH_ERROR, $data,
-                    'Неверный md5')
-            );
+        try {
+            if (!$this->checkMD5($action, $data)) {
+                throw new YandexKassaException(
+                    $this->createData(self::CODE_AUTH_ERROR, $data, 'Неверный md5')
+                );
+            }
+
+            $errorMessage = $this->orderService->checkOrder($data['customerNumber'], $data['orderNumber']);
+
+            if (empty($error)) {
+                throw new YandexKassaException(
+                    $this->createData(self::CODE_DECLINED, $data, $errorMessage)
+                );
+            }
+
+            return $this->createData(self::CODE_SUCCESS, $data);
+        } catch (YandexKassaException  $e) {
+            if (!empty($this->logger)) {
+                $this->logger->write($e->getData());
+            }
+
+            throw $e;
         }
-
-        $customerId = $data['customerNumber'];
-        $orderId = $data['orderNumber'];
-
-        if (!$this->customerRepository->exists($data['customerNumber'])) {
-            throw new YandexKassaException(
-                $this->createData($action, self::CODE_DECLINED, $data,
-                    'Пользователь не существует')
-            );
-        }
-
-        if (!$this->customerRepository->hasOrder($customerId, $orderId)) {
-            throw new YandexKassaException(
-                $this->createData($action, self::CODE_DECLINED, $data,
-                    'Заказ для данного пользователя не существует')
-            );
-        }
-
-        $order = $this->orderService->item($orderId);
-
-        if ($order['is_paid'] || !in_array($order['status'], ['Новый', 'В работе'])) {
-            throw new YandexKassaException(
-                $this->createData($action, self::CODE_DECLINED, $data,
-                    'Заказ уже оплачен')
-            );
-        }
-
-        if ((float)$order['amount'] !== (float)$data['orderSumAmount']) {
-            throw new YandexKassaException(
-                $this->createData($action, self::CODE_DECLINED, $data,
-                    'Неверная сумма оплаты')
-            );
-        }
-
-        return $this->createData($action, self::CODE_SUCCESS, $data);
     }
 
     protected function createData($code, $data, $message = null, $techMessage = null) {

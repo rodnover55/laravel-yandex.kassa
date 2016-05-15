@@ -3,6 +3,7 @@ namespace Rnr\Tests\YandexKassa;
 
 use Faker\Generator;
 use Orchestra\Testbench\TestCase as BaseTestCase;
+use Prophecy\Prophet;
 use Rnr\Tests\YandexKassa\Mock\OrderService;
 use Rnr\YandexKassa\interfaces\OrderServiceInterface;
 use Rnr\YandexKassa\Providers\YandexKassaProvider;
@@ -11,6 +12,8 @@ use Illuminate\Contracts\Config\Repository as Config;
 class TestCase extends BaseTestCase
 {
     protected $faker;
+    /** @var Prophet */
+    protected $prophet;
     
     protected function getPackageProviders($app)
     {
@@ -25,7 +28,6 @@ class TestCase extends BaseTestCase
 
     protected function resolveApplicationHttpKernel($app)
     {
-        $app->bind(OrderServiceInterface::class, OrderService::class);
     }
 
     protected function getEnvironmentSetUp($app)
@@ -43,7 +45,8 @@ class TestCase extends BaseTestCase
     {
         parent::setUp(); 
         
-        $this->faker = new Generator(); 
+        $this->faker = new Generator();
+        $this->prophet = new Prophet();
     }
 
 

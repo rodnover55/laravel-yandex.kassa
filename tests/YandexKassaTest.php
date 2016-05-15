@@ -2,7 +2,9 @@
 namespace Rnr\Tests\YandexKassa;
 
 
+use Prophecy\Prophecy\ObjectProphecy;
 use Rnr\Tests\YandexKassa\Mock\YandexKassaMock;
+use Rnr\YandexKassa\interfaces\OrderServiceInterface;
 use Rnr\YandexKassa\interfaces\YandexKassaInterface;
 use Rnr\YandexKassa\YandexKassa;
 
@@ -15,9 +17,21 @@ class YandexKassaTest extends TestCase
      * @dataProvider actionsProvider
      */
     public function testGetMD5($action, $data) {
+        $this->app->instance(OrderServiceInterface::class, $this->getOrderService()->reveal());
+        $this->paymentService = $this->app->make(YandexKassaInterface::class);
+
         $md5 = $this->paymentService->getMD5($action, $data);
 
         $this->assertEquals(strtolower($data['md5']), strtolower($md5));
+    }
+
+    /**
+     * @dataProvider actionsProvider
+     */
+    public function testMD5($action, $data) {
+        $this->app->instance(OrderServiceInterface::class, $this->getOrderService()->reveal());
+        $this->paymentService = $this->app->make(YandexKassaInterface::class);
+        $this->assertTrue($this->paymentService->checkMD5($action, $data));
     }
 
     public function actionsProvider() {
@@ -27,23 +41,9 @@ class YandexKassaTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider actionsProvider
-     */
-    public function testMD5($action, $data) {
-        $this->assertTrue($this->paymentService->checkMD5($action, $data));
-    }
-    
-    public function testCheck() {
-        $data = $this->getRequestDataForNewOrder('request.json', [
-            'status' => 'Новый',
-            'is_paid' => false
-        ], 'checkOrder');
-        
-
-        $data = $payment->check(array_merge([
-            'ip' => $request->ip()
-        ], $request->all()));
+    public function testCheckSuccess() {
+        $data =  $this->getFixture('request.json');
+        $response = $this->paymentService->check($data);
         
         
         Payment::where('order_id', $data['orderNumber'])->delete();
@@ -161,6 +161,12 @@ class YandexKassaTest extends TestCase
         parent::setUp();
 
         $this->app->alias(YandexKassaMock::class, YandexKassa::class);
-        $this->paymentService = $this->app->make(YandexKassaInterface::class);
+    }
+
+    /**
+     * @return ObjectProphecy
+     */
+    protected function getOrderService() {
+        return $this->prophet->prophesize()->willImplement(OrderServiceInterface::class);
     }
 }
