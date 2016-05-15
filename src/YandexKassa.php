@@ -5,9 +5,9 @@ namespace Rnr\YandexKassa;
 use Carbon\Carbon;
 use Rnr\YandexKassa\Exceptions\ValidateException;
 use Rnr\YandexKassa\Exceptions\YandexKassaException;
-use Rnr\YandexKassa\interfaces\LoggerInterface;
-use Rnr\YandexKassa\interfaces\OrderServiceInterface;
-use Rnr\YandexKassa\interfaces\YandexKassaInterface;
+use Rnr\YandexKassa\Interfaces\LoggerInterface;
+use Rnr\YandexKassa\Interfaces\OrderServiceInterface;
+use Rnr\YandexKassa\Interfaces\YandexKassaInterface;
 
 class YandexKassa implements YandexKassaInterface
 {
@@ -51,11 +51,16 @@ class YandexKassa implements YandexKassaInterface
      * @return array
      * @throws YandexKassaException
      */
-    public function check($data) {
+    public function check(array $data) {
         return $this->checkPreconditions(self::CHECK, $data);
     }
 
-    public function aviso($data) {
+    /**
+     * @param array $data
+     * @return array
+     * @throws YandexKassaException
+     */
+    public function aviso(array $data) {
         return $this->checkPreconditions(self::AVISO, $data);
     }
 
@@ -83,7 +88,7 @@ class YandexKassa implements YandexKassaInterface
 
             $errorMessage = $this->orderService->checkOrder($data['customerNumber'], $data['orderNumber']);
 
-            if (empty($error)) {
+            if (!empty($errorMessage)) {
                 throw new YandexKassaException(
                     $this->createData(self::CODE_DECLINED, $data, $errorMessage)
                 );

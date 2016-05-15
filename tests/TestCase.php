@@ -5,12 +5,12 @@ use Faker\Generator;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Prophecy\Prophet;
 use Rnr\Tests\YandexKassa\Mock\OrderService;
-use Rnr\YandexKassa\interfaces\OrderServiceInterface;
 use Rnr\YandexKassa\Providers\YandexKassaProvider;
 use Illuminate\Contracts\Config\Repository as Config;
 
 class TestCase extends BaseTestCase
 {
+    /** @var  Generator */
     protected $faker;
     /** @var Prophet */
     protected $prophet;
@@ -26,10 +26,6 @@ class TestCase extends BaseTestCase
         return json_decode($data, true);
     }
 
-    protected function resolveApplicationHttpKernel($app)
-    {
-    }
-
     protected function getEnvironmentSetUp($app)
     {
         /** @var Config $config */
@@ -37,7 +33,11 @@ class TestCase extends BaseTestCase
         
         $config->set('yandex-kassa', [
             'shopId' => '12323',
-            'password' => 'wjx7MRUx'
+            'password' => 'wjx7MRUx',
+            'routes' => [
+                'check' => '/payment/yandex/check',
+                'aviso' => '/payment/yandex/aviso'
+            ]
         ]);
     }
 
@@ -48,6 +48,4 @@ class TestCase extends BaseTestCase
         $this->faker = new Generator();
         $this->prophet = new Prophet();
     }
-
-
 }

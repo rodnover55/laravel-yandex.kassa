@@ -15,4 +15,9 @@ class YandexKassaMock extends YandexKassa
     {
         return parent::getMD5($action, $data);
     }
+
+    public function createData($code, $data, $message = null, $techMessage = null)
+    {
+        return parent::createData($code, $data, $message, $techMessage);
+    }
 }

@@ -2,11 +2,14 @@
 namespace Rnr\Tests\YandexKassa;
 
 
+use Prophecy\Argument\Token\AnyValuesToken;
 use Prophecy\Prophecy\ObjectProphecy;
 use Rnr\Tests\YandexKassa\Mock\YandexKassaMock;
-use Rnr\YandexKassa\interfaces\OrderServiceInterface;
-use Rnr\YandexKassa\interfaces\YandexKassaInterface;
+use Rnr\YandexKassa\Interfaces\LoggerInterface;
+use Rnr\YandexKassa\Interfaces\OrderServiceInterface;
+use Rnr\YandexKassa\Interfaces\YandexKassaInterface;
 use Rnr\YandexKassa\YandexKassa;
+use SimpleXMLElement;
 
 class YandexKassaTest extends TestCase
 {
@@ -43,10 +46,10 @@ class YandexKassaTest extends TestCase
 
     public function testCheckSuccess() {
         $data =  $this->getFixture('request.json');
-        $response = $this->paymentService->check($data);
-        
-        
-        Payment::where('order_id', $data['orderNumber'])->delete();
+
+        $orderService = $this->getOrderService();
+        $orderService->checkOrder($data['customerNumber'], $data['orderNumber'])->willReturn(null);
+        $this->app->instance(OrderServiceInterface::class, $orderService->reveal());
 
         $this->post('/payment/yandex/check', $data);
 
@@ -58,27 +61,19 @@ class YandexKassaTest extends TestCase
         $response = new SimpleXMLElement($this->response->getContent());
 
         $this->assertNotEmpty($response['performedDatetime']);
-        $this->assertEquals(YandexPayment::CODE_SUCCESS, (int)$response['code']);
+        $this->assertEquals(YandexKassa::CODE_SUCCESS, (int)$response['code']);
         $this->assertEquals($data['shopId'], (string)$response['shopId']);
         $this->assertEquals($data['invoiceId'], (string)$response['invoiceId']);
-
-        $this->seeInDatabase('payments', [
-            'order_id' => $data['orderNumber'],
-            'status' => PaymentFactory::CHECK
-        ]);
-
-        Payment::where('order_id', $data['orderNumber'])->delete();
     }
 
     public function testAviso() {
-        $data = $this->getRequestDataForNewOrder('aviso.json', [
-            'status' => 'Новый',
-            'is_paid' => false
-        ], 'paymentAviso');
+        $data =  $this->getFixture('aviso.json');
 
-        Payment::where('order_id', $data['orderNumber'])->delete();
+        $orderService = $this->getOrderService();
+        $orderService->checkOrder($data['customerNumber'], $data['orderNumber'])->willReturn(null);
+        $this->app->instance(OrderServiceInterface::class, $orderService->reveal());
 
-        $this->withoutCSRF()->post('/payment/yandex/aviso', $data);
+        $this->post('/payment/yandex/aviso', $data);
 
         $this->assertResponseOk();
 
@@ -87,31 +82,25 @@ class YandexKassaTest extends TestCase
 
         $response = new SimpleXMLElement($this->response->getContent());
 
-        $this->assertEquals(YandexPayment::CODE_SUCCESS, (int)$response['code']);
-
-        $this->seeInDatabase('payments', [
-            'order_id' => $data['orderNumber'],
-            'status' => PaymentFactory::SUCCESS
-        ]);
-
-        $this->seeInDatabase('orders', [
-            'id' => $data['orderNumber'],
-            'status' => OrderFactory::PAID
-        ]);
-
-        Payment::where('order_id', $data['orderNumber'])->delete();
-        Order::where('id', $data['orderNumber'])->delete();
-        Customer::where('id', $data['customerNumber'])->delete();
+        $this->assertEquals(YandexKassa::CODE_SUCCESS, (int)$response['code']);
     }
 
     public function testPaidCheck() {
-        $data = $this->getRequestDataForNewOrder('request.json', [
-            'status' => 'Оплачен',
-            'is_paid' => true
-        ], 'checkOrder');
+        $data =  $this->getFixture('request.json');
 
-        $this->withoutCSRF()->post('/payment/yandex/check', $data);
+        $orderService = $this->getOrderService();
+        $orderService->checkOrder($data['customerNumber'], $data['orderNumber'])->willReturn('Order paid.');
+        $this->app->instance(OrderServiceInterface::class, $orderService->reveal());
 
+        $logger = $this->getLogger();
+        $logger
+            ->write(new AnyValuesToken())
+            ->shouldBeCalled();
+        $this->app->instance(LoggerInterface::class, $logger->reveal());
+
+        $this->post('/payment/yandex/check', $data);
+
+        $this->prophet->checkPredictions();
         $this->assertResponseOk();
 
         $this->assertEquals('text/xml; charset=UTF-8',
@@ -119,41 +108,7 @@ class YandexKassaTest extends TestCase
 
         $response = new SimpleXMLElement($this->response->getContent());
 
-        $this->assertEquals(YandexPayment::CODE_DECLINED, (int)$response['code']);
-    }
-
-    protected function getRequestDataForNewOrder($fixtures, $orderOptions, $csrfAction) {
-        $customer = factory(Customer::class)->create();
-        $shipment = factory(Shipment::class)->create();
-        $order = factory(Order::class)->create(array_merge(
-            $orderOptions,
-            [
-                'customer_id' => $customer->id,
-                'shipment_id' => $shipment->id
-            ]
-        ));
-
-        $data = $this->getJsonFixture($fixtures, true);
-
-        $data['orderNumber'] = $order->id;
-        $data['customerNumber'] = $customer->id;
-        $data['orderSumAmount'] = '500.00';
-
-        $data['md5'] = $this->getMD5($csrfAction, $data);
-
-        return $data;
-    }
-
-    protected function getMD5($action, $data) {
-        $options = config('services.yandex_money');
-
-        $str = implode(';', [
-            $action, $data['orderSumAmount'], $data['orderSumCurrencyPaycash'],
-            $data['orderSumBankPaycash'], $options['shopId'], $data['invoiceId'],
-            $data['customerNumber'], $options['password']
-        ]);
-
-        return md5($str);
+        $this->assertEquals(YandexKassa::CODE_DECLINED, (int)$response['code']);
     }
 
     public function setUp()
@@ -168,5 +123,9 @@ class YandexKassaTest extends TestCase
      */
     protected function getOrderService() {
         return $this->prophet->prophesize()->willImplement(OrderServiceInterface::class);
+    }
+    
+    protected function getLogger() {
+        return $this->prophet->prophesize()->willImplement(LoggerInterface::class);
     }
 }

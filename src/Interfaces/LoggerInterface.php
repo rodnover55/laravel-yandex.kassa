@@ -1,5 +1,5 @@
 <?php
-namespace Rnr\YandexKassa\interfaces;
+namespace Rnr\YandexKassa\Interfaces;
 
 
 interface LoggerInterface
