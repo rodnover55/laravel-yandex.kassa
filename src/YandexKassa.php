@@ -61,7 +61,11 @@ class YandexKassa implements YandexKassaInterface
      * @throws YandexKassaException
      */
     public function aviso(array $data) {
-        return $this->checkPreconditions(self::AVISO, $data);
+        $response = $this->checkPreconditions(self::AVISO, $data);
+        
+        $this->orderService->changeOrder($data['orderNumber'], $data);
+        
+        return $response;
     }
 
     protected function checkMD5($action, $data) {
@@ -117,5 +121,9 @@ class YandexKassa implements YandexKassaInterface
             'message' => $message,
             'techMessage' => $techMessage
         ];
+    }
+
+    protected function isSuccess($data) {
+        return $data['code'] == self::CODE_SUCCESS;
     }
 }

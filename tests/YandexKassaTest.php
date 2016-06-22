@@ -71,6 +71,7 @@ class YandexKassaTest extends TestCase
 
         $orderService = $this->getOrderService();
         $orderService->checkOrder($data['customerNumber'], $data['orderNumber'])->willReturn(null);
+        $orderService->changeOrder($data['orderNumber'], $data)->willReturn(null);
         $this->app->instance(OrderServiceInterface::class, $orderService->reveal());
 
         $this->post('/payment/yandex/aviso', $data);
